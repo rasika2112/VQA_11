@@ -40,6 +40,9 @@
             <!-- <iframe height="510" src="https://www.youtube.com/embed/rUWxSEwctFU" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe> -->
             <div class="col-xl-10">
               <div class="card rounded-3 text-black">
+
+                <form method="POST" action="">
+                  {% csrf_token %}
                 <div class="row g-0">
                   <div class="col-lg-6">
                     <div class="card-body p-md-5 mx-md-4">
@@ -48,18 +51,16 @@
                         <img src="https://mdbcdn.b-cdn.net/img/Photos/new-templates/bootstrap-login-form/lotus.webp" style="width: 185px;" alt="logo">
                         <h4 class="mt-1 mb-5 pb-1">VQA Group 11 Project</h4>
                       </div>
-      
-                      <form>
                         <p>Please login to your account</p>
       
                         <div class="form-outline mb-4">
-                          <input type="email" id="form2Example11" class="form-control" placeholder="Phone number or email address"/>
-                          <label class="form-label" for="form2Example11">Username</label>
+                          <input type="text" id="username" name="username" class="form-control" placeholder="Username"/>
+                          <label class="form-label" for="username">Username</label>
                         </div>
       
                         <div class="form-outline mb-4">
-                          <input type="password" id="form2Example22" class="form-control" />
-                          <label class="form-label" for="form2Example22">Password</label>
+                          <input type="password" name="password" id="password" class="form-control" />
+                          <label class="form-label" for="password">Password</label>
                         </div>
       
                         <!-- <div class="text-center pt-1 mb-5 pb-1">
@@ -69,10 +70,9 @@
       
                         <div class="d-flex align-items-center justify-content-center pb-4">
                           <!-- <p class="mb-0 me-2">Don't have an account?</p> -->
-                          <button type="button" class="btn btn-outline-danger">Login</button>
+                          <button type="submit" class="btn btn-outline-danger">Login</button>
                         </div>
       
-                      </form>
       
                     </div>
                   </div>
@@ -80,22 +80,23 @@
                   <div class="col-lg-6 align-items-center gradient-custom-2">
                     <div class="text-white px-1 py-2 p-md-3 mx-md-2">
                         <div class="embed-responsive embed-responsive-16by9">
-                            <iframe height="300" width="100%" class="embed-responsive-item" src="https://www.youtube.com/embed/rUWxSEwctFU" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+                            <iframe height="300" width="100%" class="embed-responsive-item" src="https://firebasestorage.googleapis.com/v0/b/vqa11-fccb4.appspot.com/o/10%20Second%20Animation%20Practice%20%2302.mp4?alt=media&token=7dce23b6-fde4-4b85-95a1-d18ceb3ebd45" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
                         </div>
                         <br>
                         <h4 class="mb-4">Question to be displayed?</h4>
                       <!-- <p class="small mb-0">Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.</p> -->
                       <div class="small mb-0">
                       <input type="radio" id="1" name="answer" value="HTML">
-                          <label for="html">HTML</label><br>
-                          <input type="radio" id="2" name="answer" value="CSS">
-                          <label for="css">CSS</label><br>
-                          <input type="radio" id="3" name="answer" value="JavaScript">
-                          <label for="javascript">JavaScript</label>
+                      <label for="html">HTML</label><br>
+                      <input type="radio" id="2" name="answer" value="CSS">
+                      <label for="css">CSS</label><br>
+                      <input type="radio" id="3" name="answer" value="JavaScript">
+                      <label for="javascript">JavaScript</label>
                       </div>
                     </div>
                   </div>
                 </div>
+              </form>
               </div>
             </div>
           </div>
