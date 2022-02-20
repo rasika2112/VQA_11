@@ -1,0 +1,15 @@
+# created by virtualenv automatically
+
+
+*.pyc
+/assets
+/data2
+/vqa/Scripts
+/node_modules
+/assets
+/en-1.1.0
+/Questgen.ai-master
+/s2v_old
+/pke-master
+/vgg16_weights_tf_dim_ordering_tf_kernels.h5
+/model50.h5
