@@ -9,6 +9,7 @@ import pyrebase
 import random, ast
 from .vqa_code import vqa_func 
 import requests
+from django.contrib.auth.decorators import login_required
 from django.core.files.storage import default_storage
 
 config = {
@@ -27,6 +28,7 @@ database = firebase.database()
 storage = firebase.storage()
 # bucket = storage.bucket()
 
+
 def index(request):
     if request.method =="POST":
         Users = list(database.child('Users').get().val())
@@ -40,6 +42,8 @@ def index(request):
             print(request.session['Username'])
             return redirect('captcha')
         else:
+            request.session['Message'] = "Incorrect Username or Password"
+            request.session['Username'] == NULL
             return redirect('/')
     else:
         return render(request, 'index.html')
@@ -62,18 +66,30 @@ def captcha(request):
         if correct_answer == answer:    
             print(answer)
         else:
+            request.session['Message'] = "Incorrect CAPTCHA"
             return redirect('/')
+        request.session['Username'] = NULL
         return render(request, 'success.html')
     else:
         Video_data = database.child('Videos').get().val()
         # print(Video_data)
+        if request.session['Username'] == NULL:
+            request.session['Message'] = "Please enter credentials"
+            return redirect('/')
         watched_videos = database.child('Users').child(request.session['Username']).child('Videos').get().val()
-        for video in watched_videos:
-            del Video_data[video]
+        watched_videos_list = watched_videos
+        print(len(Video_data), len(watched_videos))
+        if len(Video_data)!=len(watched_videos):
+            for video in watched_videos:
+                del Video_data[video]
+        else:
+            watched_videos_list = []
         Video= random.choice(list(dict(Video_data).items()))
         # print(Video)
         video_name = Video[0]
         video_details = Video[1]
+        watched_videos_list.append(video_name)
+        database.child('Users/' + request.session['Username'] + '/Videos').set(watched_videos_list)
         # print(video_name)
         print(video_details)
         video_path = video_details['Link']
