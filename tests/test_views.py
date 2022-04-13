@@ -69,6 +69,7 @@ class TestViews(TestCase):
 
         # Asserting the status code and content
         self.assertEquals(response.status_code, 200)
+        r = json.loads(response.content)
 
         # Asserting the correct answer and system's answer with result as success
         self.assertEquals(r['result'], 'success')
@@ -86,6 +87,7 @@ class TestViews(TestCase):
 
         # Asserting the status code and content
         self.assertEquals(response.status_code, 200)
+        r = json.loads(response.content)
 
         # Asserting the incorrect answer and system's answer with result as failure
         self.assertEquals(r['result'], 'failure')
