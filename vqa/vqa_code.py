@@ -1,7 +1,6 @@
 from asyncio.windows_events import NULL
 from importlib import import_module
 from sysconfig import get_python_version
-from black import gen_python_files
 
 
 def vqa_func(video_path):

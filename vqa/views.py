@@ -1,8 +1,10 @@
 from ast import Pass
 from asyncio.windows_events import NULL
 import email
+import json
 from pickle import GET
 from unittest import result
+from urllib import response
 from django.shortcuts import render, redirect
 from django.http import HttpResponse
 import pyrebase
@@ -11,6 +13,8 @@ from .vqa_code import vqa_func
 import requests
 from django.contrib.auth.decorators import login_required
 from django.core.files.storage import default_storage
+from rest_framework.response import Response
+from rest_framework.decorators import api_view
 
 config = {
         "apiKey": "AIzaSyDZ8DZQb7ulhRh6CZJQh4YIr_6U9cSi_aA",
@@ -48,61 +52,74 @@ def index(request):
     else:
         return render(request, 'index.html')
 
-
+@api_view(['POST'])
 def captcha(request):
     if request.method =="POST":
-        answer = request.POST.get("answer")
-        video_name = request.POST.get("video_name")
-        question_number = int(request.POST.get("number"))
+        answer = request.data['answer']
+        video_name = request.data["video_name"]
+        question_number = int(request.data["question_number"])
         Video = database.child('Videos').get().val()
         print(Video)
         # print(video_name)
-        video_path = database.child('Videos').child(video_name).child('Link').get().val()
-        question = database.child('Videos').child(video_name).child(question_number).child('Question').get().val()
-        choices = database.child('Videos').child(video_name).child(question_number).child('Choices').get().val()
+        # video_path = database.child('Videos').child(video_name).child('Link').get().val()
+        # question = database.child('Videos').child(video_name).child(question_number).child('Question').get().val()
+        # choices = database.child('Videos').child(video_name).child(question_number).child('Choices').get().val()
         correct_answer = database.child('Videos').child(video_name).child(question_number).child('Answer').get().val()
-        res = {'Question': question, 'Choices': choices}
+        # res = {'Question': question, 'Choices': choices}
         print(correct_answer == answer, correct_answer, answer)
         if correct_answer == answer:    
             print(answer)
+            respons = {'result': 'success'}
         else:
             request.session['Message'] = "Incorrect CAPTCHA"
-            return redirect('/')
+            respons = {'result': 'failure'}
         request.session['Username'] = NULL
-        return render(request, 'success.html')
+        print('captcha evaluated')
+        return HttpResponse(json.dumps(respons))
     else:
-        Video_data = database.child('Videos').get().val()
-        # print(Video_data)
-        if request.session['Username'] == NULL:
-            request.session['Message'] = "Please enter credentials"
-            return redirect('/')
-        watched_videos = database.child('Users').child(request.session['Username']).child('Videos').get().val()
-        watched_videos_list = watched_videos
-        print(len(Video_data), len(watched_videos))
-        if len(Video_data)!=len(watched_videos):
-            for video in watched_videos:
-                del Video_data[video]
-        else:
-            watched_videos_list = []
-        Video= random.choice(list(dict(Video_data).items()))
-        # print(Video)
-        video_name = Video[0]
-        video_details = Video[1]
-        watched_videos_list.append(video_name)
-        database.child('Users/' + request.session['Username'] + '/Videos').set(watched_videos_list)
-        # print(video_name)
-        print(video_details)
-        video_path = video_details['Link']
-        del video_details['Link']
-        question_number = random.choice(list(video_details.items()))
-        question_details = question_number[1]
-        print(question_details)
-        question = question_details['Question']
-        choices = question_details['Choices']
-        print(choices)
-        res = {'Question': question, 'Choices': choices}
-        # print(res)
-        return render(request, 'captcha.html', {'video_path': video_path, 'res': res, 'video_name': video_name, 'number': question_number[0]})
+        return HttpResponse()
+    # else:
+    #     data = request.data
+    #     print(data)
+    #     if 'username' in data.keys():
+    #         request.session['Username'] = data['username']
+    #     Video_data = database.child('Videos').get().val()
+    #     # print(Video_data)
+    #     if request.session['Username'] == NULL:
+    #         request.session['Message'] = "Please enter credentials"
+    #         return redirect('/')
+    #     watched_videos = database.child('Users').child(request.session['Username']).child('Videos').get().val()
+    #     watched_videos_list = watched_videos
+    #     print(len(Video_data))
+    #     if len(Video_data)!=len(watched_videos):
+    #         for video in watched_videos:
+    #             del Video_data[video]
+    #     else:
+    #         watched_videos_list = []
+    #     Video= random.choice(list(dict(Video_data).items()))
+    #     # print(Video)
+    #     video_name = Video[0]
+    #     video_details = Video[1]
+    #     watched_videos_list.append(video_name)
+    #     database.child('Users/' + request.session['Username'] + '/Videos').set(watched_videos_list)
+    #     # print(video_name)
+    #     print(video_details)
+    #     video_path = video_details['Link']
+    #     del video_details['Link']
+    #     question_number = random.choice(list(video_details.items()))
+    #     question_details = question_number[1]
+    #     print(question_details)
+    #     question = question_details['Question']
+    #     choices = question_details['Choices']
+    #     print(choices)
+    #     res = {'Question': question, 'Choices': choices}
+    #     # print(res)
+    #     result = { 'video_path': video_path, 
+    #             'res': res, 
+    #             'video_name': video_name, 
+    #             'number': question_number[0]}
+    #     print('render get')
+    #     return render(request, 'captcha.html', result)
 
 
 def upload(request):
@@ -127,3 +144,52 @@ def upload(request):
         return redirect('index')
     else:
         return render(request, "upload.html")
+
+@api_view(['POST'])
+def captcha_api(request):
+    data = request.data
+    print(data)
+    if 'username' in data.keys():
+        request.session['Username'] = data['username']
+        Video_data = database.child('Videos').get().val()
+        users = list(dict(database.child('Users').get().val()).keys())
+        if data['username'] not in users:
+            database.child('Users/' + data['username']).set('Videos')
+        watched_videos = database.child('Users').child(data['username']).child('Videos').get().val()
+        watched_videos_list = watched_videos
+        # print(len(Video_data))
+        if watched_videos!=None:
+            if len(Video_data)!=len(watched_videos):
+                for video in watched_videos:
+                    del Video_data[video]
+            else:
+                watched_videos_list = []
+        else:
+            watched_videos_list = []
+        Video= random.choice(list(dict(Video_data).items()))
+        # print(Video)
+        video_name = Video[0]
+        video_details = Video[1]
+        watched_videos_list.append(video_name)
+        database.child('Users/' + data['username'] + '/Videos').set(watched_videos_list)
+        # print(video_name)
+        # print(video_details)
+        video_path = video_details['Link']
+        del video_details['Link']
+        question_number = random.choice(list(video_details.items()))
+        question_details = question_number[1]
+        print(question_details)
+        question = question_details['Question']
+        choices = question_details['Choices']
+        # print(choices)
+        res = {'Question': question, 'Choices': choices}
+        # print(res)
+        result = { 'video_path': video_path, 
+                'res': res, 
+                'video_name': video_name, 
+                'number': question_number[0]}
+        # print(result)
+        print('captcha shown')
+        return HttpResponse(json.dumps(result))
+    else:
+        return HttpResponse()
