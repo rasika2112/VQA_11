@@ -3,7 +3,7 @@
 
 *.pyc
 /assets
-/data2
+/data
 /vqa/Scripts
 /node_modules
 /assets
@@ -12,4 +12,11 @@
 /s2v_old
 /pke-master
 /vgg16_weights_tf_dim_ordering_tf_kernels.h5
-/model50.h5
+/decoder_model_weights.h5
+/encoder_model.h5
+/test_output.txt
+/tokenizer1500
+/AllVideoDescriptions.txt
+/YouTubeClips
+/temporary_images
+/video_corpus.csv

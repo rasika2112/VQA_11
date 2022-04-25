@@ -1,238 +1,265 @@
-from asyncio.windows_events import NULL
-from importlib import import_module
-from sysconfig import get_python_version
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+# %matplotlib inline
+import os, sys
+import pickle, functools, operator
+import tensorflow as tf
+from tensorflow import keras
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
+import joblib
+from keras.models import Model, load_model
+from keras.layers import Input, LSTM, Dense
+from keras.callbacks import EarlyStopping, ModelCheckpoint
+import json
+import random
+from keras.utils.vis_utils import plot_model
+import tensorflow as tf
+import datetime
+from collections import Counter
+from pprint import pprint
+# import nltk
+# nltk.download('stopwords')
+import sys
+import shutil
 
+import tqdm
+import numpy as np
+import cv2
+import os
+from tensorflow.keras.applications.vgg16 import VGG16
+from tensorflow.keras.models import Model
 
-def vqa_func(video_path):
-    import cv2
-    import os, random
-    from PIL import Image
-    import numpy as np # linear algebra
-    import pandas as pd # data processing, CSV file I/O (e.g. pd.read_csv)
-    import matplotlib.pyplot as plt
-    import tensorflow as tf
-    from tensorflow import keras
-    from tensorflow.compat.v1.keras.backend import set_session
-    import sys, time, os, warnings 
-    import numpy as np
-    import pandas as pd 
-    from collections import Counter 
-    os.environ['SPACY_WARNING_IGNORE'] = 'W008'
-    warnings.filterwarnings("ignore")
-    print("python {}".format(sys.version))
-    print("keras version {}".format(keras.__version__)); del keras
-    print("tensorflow version {}".format(tf.__version__))
-    from keras.preprocessing.image import load_img, img_to_array
-    from keras.applications.vgg16 import preprocess_input
-    from IPython.display import display
-    from PIL import Image
+# class to perform inference on all test files and save as test_output.txt
+class Video2Text(object):
+        ''' Initialize the parameters for the model '''
+        def __init__(self):
+            self.latent_dim = 512
+            self.num_encoder_tokens = 4096
+            self.num_decoder_tokens = 1500
+            self.time_steps_encoder = 80
+            self.time_steps_decoder = None
+            self.preload = True
+            self.preload_data_path = 'preload_data'
+            self.max_probability = -1
 
-    import keras
-    from keras.applications.vgg16 import VGG16
-    modelvgg = VGG16(include_top=True,weights=None)
-    ## load the locally saved weights 
-    modelvgg.load_weights("C:/Users/Rasika/Django/VQA_11/vgg16_weights_tf_dim_ordering_tf_kernels.h5")
-    # modelvgg.summary()
-    from keras import models
-    modelvgg.layers.pop() #the last layer is for classification so we remove that layer for feature extraction model
-    modelvgg = models.Model(inputs=modelvgg.inputs, outputs=modelvgg.layers[-1].output)
-    ## show the deep learning model
-    # modelvgg.summary()
+            # processed data
+            self.encoder_input_data = []
+            self.decoder_input_data = []
+            self.decoder_target_data = []
+            self.tokenizer = None
 
-
-
-
-    from keras import layers
-    from keras.layers import Input, Flatten, Dropout, Activation
-    from keras.layers.advanced_activations import LeakyReLU, PReLU
-
-    ## image feature
-
-    dim_embedding = 64
-    vocab_size = 4373
-    input_image = layers.Input(shape=(1000,))
-    fimage = layers.Dense(256,activation='relu',name="ImageFeature")(input_image)
-    ## sequence model
-    input_txt = layers.Input(shape=(29,))
-    ftxt = layers.Embedding(vocab_size,dim_embedding, mask_zero=True)(input_txt)
-    ftxt = layers.LSTM(256,name="CaptionFeature",return_sequences=True)(ftxt)
-    #,return_sequences=True
-    #,activation='relu'
-    se2 = Dropout(0.04)(ftxt)
-    ftxt = layers.LSTM(256,name="CaptionFeature2")(se2)
-    ## combined model for decoder
-    decoder = layers.add([ftxt,fimage])
-    decoder = layers.Dense(256,activation='relu')(decoder)
-    output = layers.Dense(vocab_size,activation='softmax')(decoder)
-    model = models.Model(inputs=[input_image, input_txt],outputs=output)
-
-    model.compile(loss='categorical_crossentropy', optimizer='adam')
-
-    # print(model.summary())
-
-
-
-
-    model.load_weights("C:/Users/Rasika/Django/VQA_11/model50.h5")
-    model.summary()
-
-    import json
-    with open("C:/Users/Rasika/Django/VQA_11/data.json") as json_file:
-        index_word = json.load(json_file)
-    
-        # Print the type of data variable
-        print("Type:", type(index_word))
-
-
-
-
-    data= pd.read_csv("C:/Users/Rasika/Django/VQA_11/csvfile.csv")
-    data = data.set_index('filename')
-
-
-
-
-    # df_txt0.drop_duplicates(keep=False)
-    data = data[~data.index.duplicated(keep='first')]
-
-
-
-
-    data.reset_index(level=0, inplace=True)
-    data[:5]
-
-
-
-
-    dcaptions = data["caption"].values
-
-
-    from keras.preprocessing.sequence import pad_sequences
-    from tensorflow.keras.utils import to_categorical
-    from keras.preprocessing.text import Tokenizer
-    ## the maximum number of words in dictionary
-    nb_words = 6000
-    tokenizer = Tokenizer(nb_words=nb_words)
-    tokenizer.fit_on_texts(dcaptions)
-    vocab_size = len(tokenizer.word_index) + 1
-    def predict_caption(image):
-        '''
-        image.shape = (1,4462)
-        '''
-
-        in_text = 'startseq'
-        maxlen = 29
-        for iword in range(maxlen):
-            sequence = tokenizer.texts_to_sequences([in_text])[0]
-            sequence = pad_sequences([sequence],maxlen)
-            yhat = model.predict([image,sequence],verbose=0)
-            yhat = np.argmax(yhat)
+            # models
+            self.encoder_model = None
+            self.decoder_model = None
+            self.inf_encoder_model = None
+            self.inf_decoder_model = None
+            # self.save_model_path = '../input/model-final'
+        
+        def load_inference_models(self):
+            # load tokenizer
             
-            newword = index_word[str(yhat)]
-            in_text += " " + newword
-            if newword == "endseq":
+            with open('C:/Users/Rasika/Django/VQA_11/tokenizer1500', 'rb') as file:
+                self.tokenizer = joblib.load(file)
+
+            # inference encoder model
+            self.inf_encoder_model = load_model('C:/Users/Rasika/Django/VQA_11/encoder_model.h5')
+
+            # inference decoder model
+            decoder_inputs = Input(shape=(None, self.num_decoder_tokens))
+            decoder_dense = Dense(self.num_decoder_tokens, activation='softmax')
+            decoder_lstm = LSTM(self.latent_dim, return_sequences=True, return_state=True)
+            decoder_state_input_h = Input(shape=(self.latent_dim,))
+            decoder_state_input_c = Input(shape=(self.latent_dim,))
+            decoder_states_inputs = [decoder_state_input_h, decoder_state_input_c]
+            decoder_outputs, state_h, state_c = decoder_lstm(decoder_inputs, initial_state=decoder_states_inputs)
+            decoder_states = [state_h, state_c]
+            decoder_outputs = decoder_dense(decoder_outputs)
+            self.inf_decoder_model = Model(
+                [decoder_inputs] + decoder_states_inputs,
+                [decoder_outputs] + decoder_states)
+            self.inf_decoder_model.load_weights('C:/Users/Rasika/Django/VQA_11/decoder_model_weights.h5')
+        
+        def decode_sequence2bs(self, input_seq):
+            states_value = self.inf_encoder_model.predict(input_seq)
+            target_seq = np.zeros((1, 1, self.num_decoder_tokens))
+            target_seq[0, 0, self.tokenizer.word_index['startseq']] = 1
+            self.beam_search(target_seq, states_value,[],[],0)
+            return decode_seq
+
+        def beam_search(self, target_seq, states_value, prob,  path, lens):
+            global decode_seq
+            node = 2
+            output_tokens, h, c = self.inf_decoder_model.predict(
+                [target_seq] + states_value)
+            output_tokens = output_tokens.reshape((self.num_decoder_tokens))
+            sampled_token_index = output_tokens.argsort()[-node:][::-1]
+            states_value = [h, c]
+            for i in range(node):
+                if sampled_token_index[i] == 0:
+                    sampled_char = ''
+                else:
+                    sampled_char = list(self.tokenizer.word_index.keys())[list(self.tokenizer.word_index.values()).index(sampled_token_index[i])]
+                MAX_LEN = 10
+                if(sampled_char != 'endseq' and lens <= MAX_LEN):
+                    p = output_tokens[sampled_token_index[i]]
+                    if(sampled_char == ''):
+                        p = 1
+                    prob_new = list(prob)
+                    prob_new.append(p)
+                    path_new = list(path)
+                    path_new.append(sampled_char)
+                    target_seq = np.zeros((1, 1, self.num_decoder_tokens))
+                    target_seq[0, 0, sampled_token_index[i]] = 1.
+                    self.beam_search(target_seq, states_value, prob_new, path_new, lens+1)
+                else:
+                    p = output_tokens[sampled_token_index[i]]
+                    prob_new = list(prob)
+                    prob_new.append(p)
+                    p = functools.reduce(operator.mul, prob_new, 1)
+                    if(p > self.max_probability):
+                        decode_seq = path
+                        self.max_probability = p
+
+        def decoded_sentence_tuning(self, decoded_sentence):
+            decode_str = []
+            filter_string = ['startseq', 'endseq']
+            unigram = {}
+            last_string = ""
+            for idx2, c in enumerate(decoded_sentence):
+                if c in unigram:
+                    unigram[c] += 1
+                else:
+                    unigram[c] = 1
+                if(last_string == c and idx2 > 0):
+                    continue
+                if c in filter_string:
+                    continue
+                if len(c) > 0:
+                    decode_str.append(c)
+                if idx2 > 0:
+                    last_string = c
+            return decode_str
+
+        def get_test_data(self, video_name, path):
+            X_test = []
+            X_test_filename = []
+        
+            for i in path:
+                filename = i.split('.')[0]
+                f = np.load(os.path.join('C:/Users/Rasika/Django/VQA_11/data/features_dir', video_name + '.npy'))
+                X_test.append(f)
+                X_test_filename.append(filename[:-4])
+            X_test = np.array(X_test)
+            return X_test, X_test_filename
+
+        def test(self, video_name,a):
+            X_test, X_test_filename = self.get_test_data(video_name, a)
+            print(len(X_test), len(X_test_filename))
+            # generate inference test outputs
+
+            for idx, x in enumerate(X_test): 
+                decoded_sentence = self.decode_sequence2bs(x.reshape(-1, 80, 4096))
+                decode_str = self.decoded_sentence_tuning(decoded_sentence)
+                sent=''
+                for d in decode_str:
+                    sent+=d + ' '
+                print(sent)
+                # re-init max prob
+                self.max_probability = -1
+            return sent
+            
+def vqa_func(video_name, video_path):
+    def video_to_frames(video):
+
+        if os.path.exists('temporary_images'):
+            shutil.rmtree('temporary_images')
+        os.makedirs('temporary_images')
+        # video_path = os.path.join('../input/msvd-dataset/YouTubeClips/YouTubeClips', video)
+        
+        count = 0
+        image_list = []
+        # Path to video file
+        cap = cv2.VideoCapture(video_path)
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if ret is False:
                 break
-        return(in_text)
+            cv2.imwrite(os.path.join('./temporary_images', 'frame%d.jpg' % count), frame)
+            image_list.append(os.path.join('./temporary_images', 'frame%d.jpg' % count))
+            count += 1
+
+        cap.release()
 
 
+        return image_list
+
+    def model_cnn_load():
+        model = VGG16(weights="imagenet", include_top=True, input_shape=(224, 224, 3))
+        out = model.layers[-2].output
+        model_final = Model(inputs=model.input, outputs=out)
+        return model_final
 
 
-    # path = "../input/videos"
-    # video = random.choice(os.listdir(path))
-    # video_path = path + "/" + video
-    # print(video_path)
-    # Read the video from specified path
-    cam = cv2.VideoCapture(video_path)
-    
-    try:
-        
-        # creating a folder named data
-        if not os.path.exists('data2'):
-            os.makedirs('data2')
-    
-    # if not created then raise error
-    except OSError:
-        print ('Error: Creating directory of data')
-    
-    # frame
-    currentframe = 0
-    namelist = []
-    
-    while(True):
-        
-        # reading from frame
-        ret,frame = cam.read()
-    
-        if ret:
-            # if video is still left continue creating images
-            name = './data2/frame' + str(currentframe) + '.jpg'
-            # print ('Creating...' + name)
-            namelist.append(name)
-    
-            # writing the extracted images
-            cv2.imwrite(name, frame)
-    
-            # increasing counter so that it will
-            # show how many frames are created
-            currentframe += 1
-        else:
-            break
-    
-    # Release all space and windows once done
-    cam.release()
-    cv2.destroyAllWindows()
+    def load_image(path):
+        img = cv2.imread(path)
+        img = cv2.resize(img, (224, 224))
+        return img
 
 
+    def extract_features(video, model):
+        """
+        :param video: The video whose frames are to be extracted to convert into a numpy array
+        :param model: the pretrained vgg16 model
+        :return: numpy array of size 4096x80
+        """
+        video_id = video.split(".")[0]
+        print(video_id)
+        print(f'Processing video {video}')
+
+        image_list = video_to_frames(video)
+        samples = np.round(np.linspace(0, len(image_list) - 1, 80))
+        image_list = [image_list[int(sample)] for sample in samples]
+        images = np.zeros((len(image_list), 224, 224, 3))
+        for i in range(len(image_list)):
+            img = load_image(image_list[i])
+            images[i] = img
+        images = np.array(images)
+        fc_feats = model.predict(images, batch_size=3)
+        img_feats = np.array(fc_feats)
+        # cleanup
+        return img_feats
 
 
-    import random
-    namelist_sorted = sorted(list(random.sample(namelist, 10)))
-    print(namelist_sorted)
+    def extract_feats_pretrained_cnn(video_name, video):
+        """
+        saves the numpy features from all the videos
+        """
+        model = model_cnn_load()
+        print('Model loaded')
+
+        if not os.path.exists('data/features_dir'):
+            os.makedirs('data/features_dir')
+        txt=video.split("/")[-1]
+
+        t=str(txt).strip()
 
 
+        outfile = os.path.join('C:/Users/Rasika/Django/VQA_11/data', 'features_dir', video_name + '.npy')
+        img_feats = extract_features(txt, model)
+        np.save(outfile, img_feats)
+        validation_set=[]
+        validation_set.append(txt)
 
+        return validation_set
 
-    def generate_description(filename):
-        npix = 224 #image size is fixed at 224 because VGG16 model has been pre-trained to take that size.
-        target_size = (npix,npix,3)
-        image_load = load_img(filename, target_size=target_size)
+    a=extract_feats_pretrained_cnn(video_name, video_path)
+    c = Video2Text()
+    c.load_inference_models()
+    caption_true=c.test(video_name, a)
+    print(caption_true)
 
-        plt.imshow(image_load)
-
-
-        image = load_img(filename, target_size=target_size)
-        # convert the image pixels to a numpy array
-        image = img_to_array(image)
-        nimage = preprocess_input(image)
-
-        y_pred = modelvgg.predict(nimage.reshape( (1,) + nimage.shape[:3]))
-        image_feature = y_pred.flatten()
-        # print(image_feature.shape)
-        caption = predict_caption(image_feature.reshape(1,len(image_feature)))
-        return caption
-
-
-
-
-    des = ""
-    for name in namelist_sorted:
-        des += generate_description(name)[9:-7] + ", "
-    print(des)
-
-    # gen_python_files().system('pip install git+https://github.com/ramsrigouthamg/Questgen.ai')
-    # get_python_version().system('pip install git+https://github.com/boudinfl/pke.git')
-
-    # get_ipython().system('python -m nltk.downloader universal_tagset')
-    # get_ipython().system('python -m spacy download en ')
-    # get_ipython().system('wget https://github.com/explosion/sense2vec/releases/download/v1.0.0/s2v_reddit_2015_md.tar.gz')
-    # get_ipython().system('tar -xvf  s2v_reddit_2015_md.tar.gz')
-    # get_ipython().system('pip install --quiet git+https://github.com/boudinfl/pke.git@dc4d5f21e0ffe64c4df93c46146d29d1c522476b')
-    # get_ipython().system('pip install --quiet flashtext==2.7')
-
-    from pprint import pprint
-    # import nltk
-    # nltk.download('stopwords')
-    import sys
     sys.path.insert(1, 'C:/Users/Rasika/Django/VQA_11/Questgen.ai-master/Questgen')
     import main
 
@@ -243,7 +270,7 @@ def vqa_func(video_path):
         return output
     
     payload = {
-                    "input_text": des
+                    "input_text": caption_true
         }
 
     # getting MCQs from the text
@@ -253,6 +280,8 @@ def vqa_func(video_path):
     output = get_mcq(payload)
     final_list = {}
     i=1
+
+    print(output)
 
     # if 'questions' in output:
     #     del output['questions']
@@ -265,10 +294,6 @@ def vqa_func(video_path):
             final_list[i] = {'Question': output['questions'][j]['question_statement'], 'Choices': choices, 'Answer': output['questions'][j]['answer']}
             i+=1
 
-        # print(output)
-        # print(final_list)
-
         return final_list
     else:
-        return NULL
-
+        return None

@@ -32,19 +32,23 @@ database = firebase.database()
 storage = firebase.storage()
 # bucket = storage.bucket()
 
+admin = "admin"
+adminp = "admin"
 
 def index(request):
     if request.method =="POST":
-        Users = list(database.child('Users').get().val())
-        print(Users)
+        # Users = list(database.child('Users').get().val())
+        # print(Users)
         username = request.POST.get("username")
         password = request.POST.get("password")
-        correct_password = database.child('Users').child(username).child('Password').get().val()
-        print(username in Users)
-        if username in Users and password == correct_password:
+        # correct_password = database.child('Users').child(username).child('Password').get().val()
+        # print(username in Users)
+        print(username, password)
+        if username==admin and password == adminp:
+            request.session['Message'] = ""
             request.session['Username'] = username
             print(request.session['Username'])
-            return redirect('captcha')
+            return redirect('upload')
         else:
             request.session['Message'] = "Incorrect Username or Password"
             request.session['Username'] == NULL
@@ -122,28 +126,48 @@ def captcha(request):
     #     return render(request, 'captcha.html', result)
 
 
+# @login_required(login_url='/')
 def upload(request):
-    if request.method == "POST":
-        title = request.POST.get("title")
-        file = request.FILES['file']
-        # path = default_storage.save(title, file)
-        storage.child('/' + title).put(file)
-        # print(default_storage.delete(path))
-        url = "https://firebasestorage.googleapis.com/v0/b/vqa11-fccb4.appspot.com/o/" + title
-        data = requests.get(url=url).json()
-        print(data)
-        video_path = url + '?alt=media&token=' + data['downloadTokens']
-        result = vqa_func(video_path)
-        # result = {'Question': 'What is man in blue shirt riding on crowd?', 'Choices': ['Skateboard', 'unicycle', 'Tricycle', 'Riding'], 'Answer': 'unicycle'}
-        if result==NULL:
-            print("No questions generated")
+    if "Username" in request.session:
+        if request.method == "POST":
+            title = request.POST.get("title")
+            file = request.FILES['file']
+            # path = default_storage.save(title, file)
+            storage.child('/' + title).put(file)
+            # print(default_storage.delete(path))
+            url = "https://firebasestorage.googleapis.com/v0/b/vqa11-fccb4.appspot.com/o/" + title
+            data = requests.get(url=url).json()
+            print(data)
+            video_path = url + '?alt=media&token=' + data['downloadTokens']
+            # video_path = "C:/Users/Rasika/Django/VQA_11/YouTubeClips/YouTubeClips/-AwoiGR6c8M_10_14.avi"
+            result = vqa_func(title, video_path)
+            # result = {'Question': 'What is man in blue shirt riding on crowd?', 'Choices': ['Skateboard', 'unicycle', 'Tricycle', 'Riding'], 'Answer': 'unicycle'}
+            print(result)
+            if result==None:
+                request.session["Upload_Message"] = "File upload with questions in Firebase Storage unsuccessful"
+            else:
+                result['Link'] = video_path
+                database.child('Videos/' + title).set(result)
+                request.session["Upload_Message"] = "File upload with questions in Firebase Storage successful"
+            # del request.session['username']
+            return redirect('upload')
         else:
-            result['Link'] = video_path
-            database.child('Videos/' + title).set(result)
-            print( "File upload in Firebase Storage successful")
-        return redirect('index')
+            request.session['Message'] = ""
+            return render(request, "upload.html")
     else:
-        return render(request, "upload.html")
+        request.session['Message'] = "Please Login"
+        return redirect('/')
+
+def logout(request):
+    del request.session["Username"]
+    if "Message" in request.session:
+        del request.session["Message"]
+    if "Upload_Message" in request.session:
+        del request.session["Upload_Message"]
+    return redirect('/')
+
+def about(request):
+    return render(request, 'about.html')
 
 @api_view(['POST'])
 def captcha_api(request):
