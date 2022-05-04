@@ -30,19 +30,15 @@ firebase = pyrebase.initialize_app(config)
 authe = firebase.auth()
 database = firebase.database()
 storage = firebase.storage()
-# bucket = storage.bucket()
 
 admin = "admin"
 adminp = "admin"
 
+# Admin login page to proceed to video uploading page
 def index(request):
     if request.method =="POST":
-        # Users = list(database.child('Users').get().val())
-        # print(Users)
         username = request.POST.get("username")
         password = request.POST.get("password")
-        # correct_password = database.child('Users').child(username).child('Password').get().val()
-        # print(username in Users)
         print(username, password)
         if username==admin and password == adminp:
             request.session['Message'] = ""
@@ -56,6 +52,7 @@ def index(request):
     else:
         return render(request, 'index.html')
 
+# CAPTCHA verification after user's post request with its answer to our application
 @api_view(['POST'])
 def captcha(request):
     if request.method =="POST":
@@ -64,12 +61,7 @@ def captcha(request):
         question_number = int(request.data["question_number"])
         Video = database.child('Videos').get().val()
         print(Video)
-        # print(video_name)
-        # video_path = database.child('Videos').child(video_name).child('Link').get().val()
-        # question = database.child('Videos').child(video_name).child(question_number).child('Question').get().val()
-        # choices = database.child('Videos').child(video_name).child(question_number).child('Choices').get().val()
         correct_answer = database.child('Videos').child(video_name).child(question_number).child('Answer').get().val()
-        # res = {'Question': question, 'Choices': choices}
         print(correct_answer == answer, correct_answer, answer)
         if correct_answer == answer:    
             print(answer)
@@ -82,66 +74,19 @@ def captcha(request):
         return HttpResponse(json.dumps(respons))
     else:
         return HttpResponse()
-    # else:
-    #     data = request.data
-    #     print(data)
-    #     if 'username' in data.keys():
-    #         request.session['Username'] = data['username']
-    #     Video_data = database.child('Videos').get().val()
-    #     # print(Video_data)
-    #     if request.session['Username'] == NULL:
-    #         request.session['Message'] = "Please enter credentials"
-    #         return redirect('/')
-    #     watched_videos = database.child('Users').child(request.session['Username']).child('Videos').get().val()
-    #     watched_videos_list = watched_videos
-    #     print(len(Video_data))
-    #     if len(Video_data)!=len(watched_videos):
-    #         for video in watched_videos:
-    #             del Video_data[video]
-    #     else:
-    #         watched_videos_list = []
-    #     Video= random.choice(list(dict(Video_data).items()))
-    #     # print(Video)
-    #     video_name = Video[0]
-    #     video_details = Video[1]
-    #     watched_videos_list.append(video_name)
-    #     database.child('Users/' + request.session['Username'] + '/Videos').set(watched_videos_list)
-    #     # print(video_name)
-    #     print(video_details)
-    #     video_path = video_details['Link']
-    #     del video_details['Link']
-    #     question_number = random.choice(list(video_details.items()))
-    #     question_details = question_number[1]
-    #     print(question_details)
-    #     question = question_details['Question']
-    #     choices = question_details['Choices']
-    #     print(choices)
-    #     res = {'Question': question, 'Choices': choices}
-    #     # print(res)
-    #     result = { 'video_path': video_path, 
-    #             'res': res, 
-    #             'video_name': video_name, 
-    #             'number': question_number[0]}
-    #     print('render get')
-    #     return render(request, 'captcha.html', result)
 
-
-# @login_required(login_url='/')
+# Uploading of video for MCQ generation by the admin
 def upload(request):
     if "Username" in request.session:
         if request.method == "POST":
             title = request.POST.get("title")
             file = request.FILES['file']
-            # path = default_storage.save(title, file)
             storage.child('/' + title).put(file)
-            # print(default_storage.delete(path))
             url = "https://firebasestorage.googleapis.com/v0/b/vqa11-fccb4.appspot.com/o/" + title
             data = requests.get(url=url).json()
             print(data)
             video_path = url + '?alt=media&token=' + data['downloadTokens']
-            # video_path = "C:/Users/Rasika/Django/VQA_11/YouTubeClips/YouTubeClips/-AwoiGR6c8M_10_14.avi"
             result = vqa_func(title, video_path)
-            # result = {'Question': 'What is man in blue shirt riding on crowd?', 'Choices': ['Skateboard', 'unicycle', 'Tricycle', 'Riding'], 'Answer': 'unicycle'}
             print(result)
             if result==None:
                 request.session["Upload_Message"] = "File upload with questions in Firebase Storage unsuccessful"
@@ -149,7 +94,6 @@ def upload(request):
                 result['Link'] = video_path
                 database.child('Videos/' + title).set(result)
                 request.session["Upload_Message"] = "File upload with questions in Firebase Storage successful"
-            # del request.session['username']
             return redirect('upload')
         else:
             request.session['Message'] = ""
@@ -158,6 +102,7 @@ def upload(request):
         request.session['Message'] = "Please Login"
         return redirect('/')
 
+# Logout from the current session
 def logout(request):
     del request.session["Username"]
     if "Message" in request.session:
@@ -166,9 +111,11 @@ def logout(request):
         del request.session["Upload_Message"]
     return redirect('/')
 
+# About page of our application
 def about(request):
     return render(request, 'about.html')
 
+# API called by the third party applications for gaining the video CAPTCHA details shown to the user
 @api_view(['POST'])
 def captcha_api(request):
     data = request.data
@@ -181,7 +128,6 @@ def captcha_api(request):
             database.child('Users/' + data['username']).set('Videos')
         watched_videos = database.child('Users').child(data['username']).child('Videos').get().val()
         watched_videos_list = watched_videos
-        # print(len(Video_data))
         if watched_videos!=None:
             if len(Video_data)!=len(watched_videos):
                 for video in watched_videos:
@@ -191,13 +137,10 @@ def captcha_api(request):
         else:
             watched_videos_list = []
         Video= random.choice(list(dict(Video_data).items()))
-        # print(Video)
         video_name = Video[0]
         video_details = Video[1]
         watched_videos_list.append(video_name)
         database.child('Users/' + data['username'] + '/Videos').set(watched_videos_list)
-        # print(video_name)
-        # print(video_details)
         video_path = video_details['Link']
         del video_details['Link']
         question_number = random.choice(list(video_details.items()))
@@ -205,14 +148,11 @@ def captcha_api(request):
         print(question_details)
         question = question_details['Question']
         choices = question_details['Choices']
-        # print(choices)
         res = {'Question': question, 'Choices': choices}
-        # print(res)
         result = { 'video_path': video_path, 
                 'res': res, 
                 'video_name': video_name, 
                 'number': question_number[0]}
-        # print(result)
         print('captcha shown')
         return HttpResponse(json.dumps(result))
     else:

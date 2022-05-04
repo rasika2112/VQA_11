@@ -18,12 +18,6 @@ class TestViews(TestCase):
         self.assertEquals(response.status_code, 200)
         self.assertTemplateUsed(response, 'index.html')
 
-    def test_upload_GET(self):
-        response = self.client.get(self.upload_url)
-
-        self.assertEquals(response.status_code, 200)
-        self.assertTemplateUsed(response, 'upload.html')
-
 
     # Correct call to captcha api for details
     # Requesting video captcha details by passing the credentials of the user
@@ -62,9 +56,9 @@ class TestViews(TestCase):
 
         # Passing the details of question and user's correct answer
         response = self.client.post(self.captcha_url, {
-            'answer': 'skateboard',
-            'video_name': 'Sample 1',
-            'question_number': 2
+            'answer': 'piano',
+            'video_name': 'Video 1',
+            'question_number': 1
         })
 
         # Asserting the status code and content
@@ -80,9 +74,9 @@ class TestViews(TestCase):
 
         # Passing the details of question and user's incorrect answer
         response = self.client.post(self.captcha_url, {
-            'answer': 'bike',
-            'video_name': 'Sample 1',
-            'question_number': 2
+            'answer': 'Violin',
+            'video_name': 'Video 1',
+            'question_number': 1
         })
 
         # Asserting the status code and content
@@ -91,3 +85,10 @@ class TestViews(TestCase):
 
         # Asserting the incorrect answer and system's answer with result as failure
         self.assertEquals(r['result'], 'failure')
+
+
+
+    def test_upload_GET(self):
+        response = self.client.get(self.upload_url)
+
+        self.assertEquals(response.status_code, 302)

@@ -169,8 +169,11 @@ class Video2Text(object):
                 # re-init max prob
                 self.max_probability = -1
             return sent
-            
+
+# Main function to be called for processing      
 def vqa_func(video_name, video_path):
+
+    # Convert video to frames saved in a temporary folder with 80frames/video
     def video_to_frames(video):
 
         if os.path.exists('temporary_images'):
@@ -208,6 +211,7 @@ def vqa_func(video_name, video_path):
         return img
 
 
+    # Image names list will be loaded and passed to CNN model, features will be returned
     def extract_features(video, model):
         """
         :param video: The video whose frames are to be extracted to convert into a numpy array
@@ -232,6 +236,7 @@ def vqa_func(video_name, video_path):
         return img_feats
 
 
+    # Features will be saved in .npy file
     def extract_feats_pretrained_cnn(video_name, video):
         """
         saves the numpy features from all the videos
